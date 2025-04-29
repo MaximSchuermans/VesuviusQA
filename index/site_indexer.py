@@ -22,6 +22,18 @@ class ScrollSiteIndexer:
         self.documents = self.loader.load()
         self.logger.info(f"Loaded {len(self.documents)} documents from {self.site_url}")
         self.logger.info("Finished scraping")
+        
+    def split_docs(self):
+        # TODO: Implement document splitting logic
+        pass
+    
+    def index_docs(self):
+        # TODO: Implement document indexing logic
+        pass
+    
+    def store(self):
+        # TODO: Implement vector storage logic
+        pass
 
     def _setup_logging(self, log_level, log_file):
         """Configure and return a logger with file and console handlers."""
