@@ -1,0 +1,24 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Linting and formatting
+.ruff_cache/
+.mypy_cache/
+
+# Logs
+*.log
+logfile.txt
+
+# Local environment variables
+.env
+.env.local
+
+# Other generated files
+.DS_Store

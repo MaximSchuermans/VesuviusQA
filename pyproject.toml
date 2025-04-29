@@ -1,0 +1,11 @@
+[project]
+name = "hextechagents"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.13.4",
+    "langchain-community>=0.3.23",
+    "ruff>=0.11.7",
+]
