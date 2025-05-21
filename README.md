@@ -1,4 +1,8 @@
-# HextechAgents
+# Vesuvius QA
 
-This is the repo for the cyber security agents build be the Hextech group. As of 29 April 2025 this product is part of the entrepreneurship 
-track of the AgentX competition.
+This is an agentic RAG system for answering Vesuvius competition related questions. The program in being developed is supposed 
+to be able to answer questions that rely on knowledge from:
+
+- The vesuvius website
+- The vesuvius competition discord
+- The scrollprize github repository
