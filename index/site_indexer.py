@@ -1,6 +1,7 @@
 from langchain_community.document_loaders import RecursiveUrlLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_huggingface import HuggingFaceEndpointEmbeddings
+#from langchain_community.embeddings import HuggingFaceInferenceAPIEmbeddings
+from langchain_openai import OpenAIEmbeddings
 from langchain_chroma import Chroma
 
 import logging
@@ -9,25 +10,29 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
 
 
-class ScrollSiteIndexer:
-    def __init__(self, log_level=logging.INFO, log_file="scraper.log"):
-        self.site_url = "https://scrollprize.org/"
+class ScrollSiteRetriever:
+    def __init__(self, log_level=logging.INFO, log_file="scraper.log", reindex=False):
+        self.source_url = "https://scrollprize.org/"
+        self.reindex = reindex
         self.documents = []
-        self.loader = RecursiveUrlLoader(self.site_url)
+        self.nodes = []
+        self.embedding_function = None
+        self.vector_store = None
+        self.retriever = None
+        self.embedding_model = 'text-embedding-3-large'
         # Logging
         self.logger = self._setup_logging(log_level, log_file)
 
-    def scrape(self):
+    def _scrape(self):
         self.logger.info("Starting scraping")
-        # TODO: Implement scraping logic
-        self.documents = self.loader.load()
-        self.logger.info(f"Loaded {len(self.documents)} documents from {self.site_url}")
+        loader = RecursiveUrlLoader(self.source_url)
+        self.documents = loader.load()
+        self.logger.info(f"Loaded {len(self.documents)} documents from {self.source_url}")
         self.logger.info("Finished scraping")
 
-    def split_docs(self):
+    def _load_docs(self):
         self.logger.info(f"Splitting {len(self.documents)} documents")
         if len(self.documents) == 0:
             self.logger.error("No documents loaded")
@@ -35,21 +40,42 @@ class ScrollSiteIndexer:
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000, chunk_overlap=200, add_start_index=True
         )
-        nodes = text_splitter.split_documents(self.documents)
-        self.logger.info(f"Finished splitting documents into {len(nodes)} nodes")
-        return nodes
+        self.splits = text_splitter.split_documents(self.documents)
+        self.logger.info(f"Finished splitting documents into {len(self.splits)} nodes")
+        return self.nodes
 
-    def init_index(self):
-        embeddings = HuggingFaceEndpointEmbeddings(
-            api_key=HUGGINGFACE_API_KEY,
-            model_name="sentence-transformers/all-mpnet-base-v2",
-        )
-        vector_store = Chroma(
+    def init(self):
+        self.logger.info("Initialising embedding function ...")
+        self.embedding_function = OpenAIEmbeddings(model=self.embedding_model)
+
+        if not self.reindex and os.path.exists("../data/chroma_scrollsite_index"):
+            self.logger.info("Loading existing vector store ...")
+            self.vector_store = Chroma(
+                collection_name="example_collection",
+                embedding_function=self.embedding_function,
+                persist_directory="../data/chroma_scrollsite_index",
+            )
+            self.logger.info("Loaded existing vector store")
+            return self.vector_store
+
+        self._scrape()
+        self._load_docs()
+        self.logger.info("Initialising vector store ...")
+        self.vector_store = Chroma(
             collection_name="example_collection",
-            embedding_function=embeddings,
-            persist_directory="../data/chroma_scrollsite_index",  # Where to save data locally, remove if not necessary
+            embedding_function=self.embedding_function,
+            persist_directory="../data/chroma_scrollsite_index",
         )
-        return vector_store
+        self.logger.info(f"Saving {len(self.splits)} slits to vector store {self.vector_store}")
+        self.vector_store.add_documents(documents=self.splits)
+        self.logger.info("Initialised scroll site vector store")
+        self.logger.info("Intialising retriever from vector store ...")
+        self.retriever = self.vector_store.as_retriever(search_kwargs={"k":3})
+        return None
+
+    def retrieve(self, query_list):
+        self.logger.info(f"Retrieving top 3 docs for {len(query_list)} queries ...")
+        return self.retriever.batch(query_list)
 
     def _setup_logging(self, log_level, log_file):
         """Configure and return a logger with file and console handlers."""
@@ -88,8 +114,9 @@ class ScrollSiteIndexer:
 
 
 if __name__ == "__main__":
-    index = ScrollSiteIndexer(log_level=logging.DEBUG)
-    index.scrape()
-    for doc in index.documents:
+    retriever = ScrollSiteRetriever(reindex=True, log_level=logging.DEBUG)
+    retriever.init()
+    for doc in retriever.documents:
         print(doc.metadata["source"])
-    index.split_docs()
+    print(retriever.retriever)
+    retriever.retrieve(["What is the vesuvius competition"])

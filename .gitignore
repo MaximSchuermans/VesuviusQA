@@ -22,3 +22,6 @@ logfile.txt
 
 # Other generated files
 .DS_Store
+
+#data folder
+data/
