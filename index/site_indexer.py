@@ -33,27 +33,32 @@ class ScrollSiteRetriever:
         self.logger.info("Finished scraping")
 
     def _load_docs(self):
+        """Split loaded documents into smaller chunks."""
         self.logger.info(f"Splitting {len(self.documents)} documents")
         if len(self.documents) == 0:
             self.logger.error("No documents loaded")
+            return []
 
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000, chunk_overlap=200, add_start_index=True
         )
         self.splits = text_splitter.split_documents(self.documents)
         self.logger.info(f"Finished splitting documents into {len(self.splits)} nodes")
-        return self.nodes
+        return self.splits
 
     def init(self):
+        """Initialize embedding function and vector store, optionally reindexing."""
         self.logger.info("Initialising embedding function ...")
         self.embedding_function = OpenAIEmbeddings(model=self.embedding_model)
 
-        if not self.reindex and os.path.exists("../data/chroma_scrollsite_index"):
+        index_path = "../data/chroma_scrollsite_index"
+
+        if not self.reindex and os.path.exists(index_path):
             self.logger.info("Loading existing vector store ...")
             self.vector_store = Chroma(
                 collection_name="example_collection",
                 embedding_function=self.embedding_function,
-                persist_directory="../data/chroma_scrollsite_index",
+                persist_directory=index_path,
             )
             self.logger.info("Loaded existing vector store")
             return self.vector_store
@@ -64,14 +69,14 @@ class ScrollSiteRetriever:
         self.vector_store = Chroma(
             collection_name="example_collection",
             embedding_function=self.embedding_function,
-            persist_directory="../data/chroma_scrollsite_index",
+            persist_directory=index_path,
         )
-        self.logger.info(f"Saving {len(self.splits)} slits to vector store {self.vector_store}")
+        self.logger.info(f"Saving {len(self.splits)} splits to vector store {self.vector_store}")
         self.vector_store.add_documents(documents=self.splits)
         self.logger.info("Initialised scroll site vector store")
-        self.logger.info("Intialising retriever from vector store ...")
+        self.logger.info("Initialising retriever from vector store ...")
         self.retriever = self.vector_store.as_retriever(search_kwargs={"k":3})
-        return None
+        return self.vector_store
 
     def retrieve(self, query_list):
         self.logger.info(f"Retrieving top 3 docs for {len(query_list)} queries ...")
